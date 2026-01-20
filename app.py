@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import io
-from typing import Tuple, Optional
+from datetime import datetime
 
-# Page configuration
+# Configure Streamlit page
 st.set_page_config(
     page_title="OOS Data Processor",
     page_icon="📊",
@@ -11,256 +11,477 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
+# Professional Dark Theme CSS
 st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        margin-bottom: 0.5rem;
+<style>
+    :root {
+        --primary: #1f77b4;
+        --secondary: #ff7f0e;
+        --success: #2ca02c;
+        --danger: #d62728;
+        --dark-bg: #0e1117;
+        --card-bg: #161b22;
+        --border: #30363d;
+        --text-primary: #c9d1d9;
+        --text-secondary: #8b949e;
     }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
+    
+    body, .main {
+        background-color: var(--dark-bg);
+        color: var(--text-primary);
+    }
+    
+    .header-container {
+        background: linear-gradient(135deg, #1f77b4 0%, #1a5f99 100%);
+        padding: 2.5rem;
+        border-radius: 12px;
         margin-bottom: 2rem;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
     }
-    .upload-section {
-        background-color: #f0f2f6;
+    
+    .header-title {
+        color: white;
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .header-subtitle {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 1.15rem;
+        margin-top: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .upload-card {
+        background-color: var(--card-bg);
+        border: 2px solid var(--border);
+        border-radius: 12px;
         padding: 2rem;
-        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .upload-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 0 20px rgba(31, 119, 180, 0.2);
+    }
+    
+    .card-title {
+        color: var(--primary);
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+    }
+    
+    .card-subtitle {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.2rem;
         margin-bottom: 2rem;
     }
-    .info-box {
-        background-color: #e3f2fd;
-        padding: 1rem;
-        border-left: 4px solid #1f77b4;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-    .success-box {
-        background-color: #e8f5e9;
-        padding: 1rem;
-        border-left: 4px solid #4caf50;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-    .warning-box {
-        background-color: #fff3e0;
-        padding: 1rem;
-        border-left: 4px solid #ff9800;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-def load_excel_file(uploaded_file) -> Optional[pd.DataFrame]:
-    """Load Excel file and return DataFrame"""
-    try:
-        df = pd.read_excel(uploaded_file)
-        return df
-    except Exception as e:
-        st.error(f"Error loading file: {str(e)}")
-        return None
-
-def process_data(data_a: pd.DataFrame, data_b: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
-    """
-    Process Data A and Data B according to business logic:
-    1. Filter Data A to exclude rows where ' Online Status' contains 'PreSale' or 'OnlineShip'
-    2. Cross-reference with Data B: match column AQ with column B (SKU)
-    3. Only keep rows where Data B's 'Available inventory' (column E) = 0
-    4. Return selected columns from Data A
-    """
     
-    stats = {
-        'data_a_original': len(data_a),
-        'data_a_after_filter': 0,
-        'data_a_after_crossref': 0,
-        'data_b_matching': 0
+    .stat-card {
+        background-color: var(--card-bg);
+        border-left: 5px solid var(--primary);
+        padding: 1.8rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s ease;
     }
     
-    try:
-        # Step 1: Filter Data A - exclude rows containing 'PreSale' or 'OnlineShip' in ' Online Status'
-        # Create mask for rows to exclude
-        mask_presale = data_a[' Online Status'].astype(str).str.contains('PreSale', case=False, na=False)
-        mask_onlineship = data_a[' Online Status'].astype(str).str.contains('OnlineShip', case=False, na=False)
-        mask_exclude = mask_presale | mask_onlineship
-        
-        # Filter Data A
-        data_a_filtered = data_a[~mask_exclude].copy()
-        stats['data_a_after_filter'] = len(data_a_filtered)
-        
-        # Step 2: Prepare Data B - filter for rows where 'Available inventory' = 0
-        data_b_zero_inventory = data_b[data_b['Available inventory'] == 0].copy()
-        stats['data_b_matching'] = len(data_b_zero_inventory)
-        
-        # Create a set of SKUs from Data B with zero inventory for faster lookup
-        sku_set = set(data_b_zero_inventory['SKU'].astype(str).str.strip())
-        
-        # Step 3: Cross-reference - keep only rows from Data A where AQ matches SKU in Data B (with zero inventory)
-        data_a_filtered[' System Product Code'] = data_a_filtered[' System Product Code'].astype(str).str.strip()
-        mask_match = data_a_filtered[' System Product Code'].isin(sku_set)
-        data_a_final = data_a_filtered[mask_match].copy()
-        stats['data_a_after_crossref'] = len(data_a_final)
-        
-        # Step 4: Select required columns
-        required_columns = [' Original Order Number', ' ERP Order Number', ' Order Status', 
-                          ' Online Status', ' Warehouse', ' Warehouse Dispatch Time',
-                          ' Online Product Code', ' Logistics Tracking Number', ' AQ',
-                          ' Carrier', ' Shipping Method', ' Warehouse']
-        
-        # Map the requested columns (A, B, C, K, L, N, X, Z, AQ, CA, CB, CC) to actual column names
-        # Based on Excel column positions: A=0, B=1, C=2, K=10, L=11, N=13, X=22, Z=24, AQ=42, CA=52, CB=53, CC=54
-        column_mapping = {
-            'A': ' Original Order Number',      # 0
-            'B': ' ERP Order Number',           # 1
-            'C': ' Order Status',               # 2
-            'K': ' Platform',                   # 10
-            'L': ' Store',                      # 11
-            'N': ' Store Group',                # 13
-            'X': ' Order Type',                 # 22
-            'Z': ' Creator',                    # 24
-            'AQ': ' System Product Code',       # 42
-            'CA': ' Estimated Total Order Weight',  # 52
-            'CB': ' Actual Order Weight',       # 53
-            'CC': ' Weight Unit'                # 54
-        }
-        
-        output_columns = [col for col in column_mapping.values() if col in data_a_final.columns]
-        data_a_final = data_a_final[output_columns]
-        
-        return data_a_final, stats
-        
-    except Exception as e:
-        st.error(f"Error processing data: {str(e)}")
-        raise
-
-def main():
-    # Header
-    st.markdown('<div class="main-header">📊 OOS Data Processor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Process and filter OOS data with intelligent cross-referencing</div>', unsafe_allow_html=True)
+    .stat-card:hover {
+        transform: translateY(-4px);
+    }
     
-    # Info box
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.8rem;
+    }
+    
+    .stat-value {
+        color: var(--primary);
+        font-size: 2.2rem;
+        font-weight: 800;
+    }
+    
+    .stat-card.success {
+        border-left-color: var(--success);
+    }
+    
+    .stat-card.success .stat-value {
+        color: var(--success);
+    }
+    
+    .stat-card.warning {
+        border-left-color: var(--secondary);
+    }
+    
+    .stat-card.warning .stat-value {
+        color: var(--secondary);
+    }
+    
+    .stat-card.danger {
+        border-left-color: var(--danger);
+    }
+    
+    .stat-card.danger .stat-value {
+        color: var(--danger);
+    }
+    
+    .info-banner {
+        background-color: rgba(31, 119, 180, 0.15);
+        border-left: 5px solid var(--primary);
+        padding: 1.2rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+    }
+    
+    .info-banner.success {
+        background-color: rgba(44, 160, 44, 0.15);
+        border-left-color: var(--success);
+    }
+    
+    .info-banner.error {
+        background-color: rgba(214, 39, 40, 0.15);
+        border-left-color: var(--danger);
+    }
+    
+    .section-title {
+        color: var(--primary);
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 2rem 0 1.5rem 0;
+        padding-bottom: 0.8rem;
+        border-bottom: 2px solid var(--border);
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .footer-text {
+        text-align: center;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state
+if 'data_a' not in st.session_state:
+    st.session_state.data_a = None
+if 'data_b' not in st.session_state:
+    st.session_state.data_b = None
+if 'result_data' not in st.session_state:
+    st.session_state.result_data = None
+if 'stats' not in st.session_state:
+    st.session_state.stats = None
+
+# Header
+st.markdown("""
+<div class="header-container">
+    <h1 class="header-title">📊 OOS Data Processor</h1>
+    <p class="header-subtitle">Intelligent Out-of-Stock Data Analysis & Cross-Reference Tool</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Instructions
+with st.expander("ℹ️ How It Works", expanded=False):
     st.markdown("""
-    <div class="info-box">
-    <strong>How it works:</strong><br>
-    1. Upload Data A (OOS1) and Data B (OOS2) files<br>
-    2. System filters Data A to exclude PreSale and OnlineShip orders<br>
-    3. Cross-references with Data B to match SKUs with zero inventory<br>
-    4. Displays results and allows download as Excel
-    </div>
-    """, unsafe_allow_html=True)
+    **Processing Steps:**
     
-    # Upload section
-    st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
+    1. **Upload Data A (OOS1)** - Order data with system product codes and online status
+    2. **Upload Data B (OOS2)** - Inventory data with SKU and availability information
+    3. **Automatic Processing**:
+       - Filters out PreSale and OnlineShip orders from Data A
+       - Identifies SKUs with zero available inventory in Data B
+       - Cross-references matching records
+    4. **Download Results** - Export processed data as Excel file
     
-    with col1:
-        st.subheader("📁 Data A (OOS1)")
-        uploaded_file_a = st.file_uploader(
-            "Upload Data A file",
-            type=['xlsx', 'xls', 'csv'],
-            key='data_a',
-            help="Upload the OOS1 Excel file"
-        )
+    **Output Columns**: Original Order Number, ERP Order Number, Order Status, Platform, Store, Store Group, Order Type, Creator, System Product Code, Estimated Weight, Actual Weight, Weight Unit
+    """)
+
+# Upload Section
+st.markdown('<h2 class="section-title">📁 Upload Your Data Files</h2>', unsafe_allow_html=True)
+
+col1, col2 = st.columns(2)
+
+# Data A Upload
+with col1:
+    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📋 Data A (OOS1)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-subtitle">Order data with status and SKU information</div>', unsafe_allow_html=True)
     
-    with col2:
-        st.subheader("📁 Data B (OOS2)")
-        uploaded_file_b = st.file_uploader(
-            "Upload Data B file",
-            type=['xlsx', 'xls', 'csv'],
-            key='data_b',
-            help="Upload the OOS2 Excel file"
-        )
+    uploaded_file_a = st.file_uploader(
+        "Choose Data A file",
+        type=['xlsx', 'xls', 'csv'],
+        key='file_a',
+        label_visibility='collapsed'
+    )
+    
+    if uploaded_file_a is not None:
+        try:
+            if uploaded_file_a.name.endswith('.csv'):
+                st.session_state.data_a = pd.read_csv(uploaded_file_a)
+            else:
+                st.session_state.data_a = pd.read_excel(uploaded_file_a, engine='openpyxl')
+            
+            st.markdown(f"""
+            <div class="info-banner success">
+                ✅ <strong>{uploaded_file_a.name}</strong> loaded successfully
+                <br><small>{len(st.session_state.data_a):,} rows × {len(st.session_state.data_a.columns)} columns</small>
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception as e:
+            st.markdown(f"""
+            <div class="info-banner error">
+                ❌ Error: {str(e)}
+            </div>
+            """, unsafe_allow_html=True)
+            st.session_state.data_a = None
     
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Process button
-    if st.button("🔄 Process Data", type="primary", use_container_width=True):
-        if uploaded_file_a is None or uploaded_file_b is None:
-            st.error("❌ Please upload both Data A and Data B files")
-        else:
-            with st.spinner("Processing data..."):
-                # Load files
-                data_a = load_excel_file(uploaded_file_a)
-                data_b = load_excel_file(uploaded_file_b)
-                
-                if data_a is not None and data_b is not None:
-                    # Process data
-                    result_df, stats = process_data(data_a, data_b)
-                    
-                    # Store in session state
-                    st.session_state.result_df = result_df
-                    st.session_state.stats = stats
-                    st.session_state.processed = True
-    
-    # Display results if processed
-    if 'processed' in st.session_state and st.session_state.processed:
-        st.markdown("---")
-        
-        # Statistics
-        st.subheader("📈 Processing Statistics")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        stats = st.session_state.stats
-        with col1:
-            st.metric("Data A Original", f"{stats['data_a_original']:,}")
-        with col2:
-            st.metric("After Filter", f"{stats['data_a_after_filter']:,}")
-        with col3:
-            st.metric("Data B (Zero Inv)", f"{stats['data_b_matching']:,}")
-        with col4:
-            st.metric("Final Result", f"{stats['data_a_after_crossref']:,}")
-        
-        # Results preview
-        st.subheader("👁️ Results Preview")
-        result_df = st.session_state.result_df
-        
-        if len(result_df) > 0:
-            st.markdown(f'<div class="success-box">✅ Found <strong>{len(result_df):,}</strong> matching records</div>', unsafe_allow_html=True)
-            
-            # Show data table
-            st.dataframe(result_df, use_container_width=True, height=400)
-            
-            # Download section
-            st.subheader("⬇️ Download Results")
-            
-            # Convert to Excel
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                result_df.to_excel(writer, sheet_name='Results', index=False)
-                
-                # Auto-adjust column widths
-                worksheet = writer.sheets['Results']
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
-            
-            output.seek(0)
-            
-            st.download_button(
-                label="📥 Download as Excel",
-                data=output.getvalue(),
-                file_name="oos_processed_results.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        else:
-            st.markdown('<div class="warning-box">⚠️ No matching records found after processing</div>', unsafe_allow_html=True)
-        
-        # Reset button
-        if st.button("🔄 Process Another File", use_container_width=True):
-            st.session_state.processed = False
-            st.rerun()
 
-if __name__ == "__main__":
-    main()
+# Data B Upload
+with col2:
+    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">📋 Data B (OOS2)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-subtitle">Inventory data with SKU and availability</div>', unsafe_allow_html=True)
+    
+    uploaded_file_b = st.file_uploader(
+        "Choose Data B file",
+        type=['xlsx', 'xls', 'csv'],
+        key='file_b',
+        label_visibility='collapsed'
+    )
+    
+    if uploaded_file_b is not None:
+        try:
+            if uploaded_file_b.name.endswith('.csv'):
+                st.session_state.data_b = pd.read_csv(uploaded_file_b)
+            else:
+                st.session_state.data_b = pd.read_excel(uploaded_file_b, engine='openpyxl')
+            
+            st.markdown(f"""
+            <div class="info-banner success">
+                ✅ <strong>{uploaded_file_b.name}</strong> loaded successfully
+                <br><small>{len(st.session_state.data_b):,} rows × {len(st.session_state.data_b.columns)} columns</small>
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception as e:
+            st.markdown(f"""
+            <div class="info-banner error">
+                ❌ Error: {str(e)}
+            </div>
+            """, unsafe_allow_html=True)
+            st.session_state.data_b = None
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Process Section
+st.markdown('<h2 class="section-title">⚙️ Process Data</h2>', unsafe_allow_html=True)
+
+col_process, col_reset = st.columns([3, 1])
+
+with col_process:
+    if st.button("🔄 Process Data", use_container_width=True, key='process_btn', type='primary'):
+        if st.session_state.data_a is None or st.session_state.data_b is None:
+            st.markdown("""
+            <div class="info-banner error">
+                ❌ Please upload both Data A and Data B files before processing
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            try:
+                with st.spinner('🔄 Processing data...'):
+                    # Get column names
+                    cols_a = st.session_state.data_a.columns.tolist()
+                    cols_b = st.session_state.data_b.columns.tolist()
+                    
+                    # Find the correct columns
+                    online_status_col = next((col for col in cols_a if 'Online Status' in col or 'online' in col.lower()), None)
+                    sku_col_a = next((col for col in cols_a if 'System Product Code' in col or 'sku' in col.lower()), None)
+                    sku_col_b = next((col for col in cols_b if 'SKU' in col or 'sku' in col.lower()), None)
+                    inventory_col = next((col for col in cols_b if 'Available inventory' in col or 'available' in col.lower()), None)
+                    
+                    if not all([online_status_col, sku_col_a, sku_col_b, inventory_col]):
+                        st.markdown(f"""
+                        <div class="info-banner error">
+                            ❌ Could not find required columns:
+                            <br>• Online Status: {online_status_col}
+                            <br>• SKU (Data A): {sku_col_a}
+                            <br>• SKU (Data B): {sku_col_b}
+                            <br>• Available Inventory: {inventory_col}
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Step 1: Filter Data A
+                        original_count = len(st.session_state.data_a)
+                        filtered_a = st.session_state.data_a[
+                            ~st.session_state.data_a[online_status_col].astype(str).str.contains('PreSale|OnlineShip', case=False, na=False)
+                        ].copy()
+                        filtered_count = len(filtered_a)
+                        
+                        # Step 2: Find zero-inventory SKUs
+                        zero_inventory_skus = st.session_state.data_b[
+                            st.session_state.data_b[inventory_col] == 0
+                        ][sku_col_b].unique().tolist()
+                        zero_inventory_count = len(zero_inventory_skus)
+                        
+                        # Step 3: Cross-reference
+                        result = filtered_a[
+                            filtered_a[sku_col_a].isin(zero_inventory_skus)
+                        ].copy()
+                        result_count = len(result)
+                        
+                        # Select output columns
+                        output_cols = [col for col in [
+                            next((c for c in cols_a if 'Original Order Number' in c), None),
+                            next((c for c in cols_a if 'ERP Order Number' in c), None),
+                            next((c for c in cols_a if 'Order Status' in c), None),
+                            next((c for c in cols_a if 'Platform' in c), None),
+                            next((c for c in cols_a if 'Store' in c and 'Group' not in c), None),
+                            next((c for c in cols_a if 'Store Group' in c), None),
+                            next((c for c in cols_a if 'Order Type' in c), None),
+                            next((c for c in cols_a if 'Creator' in c), None),
+                            sku_col_a,
+                            next((c for c in cols_a if 'Estimated' in c and 'Weight' in c), None),
+                            next((c for c in cols_a if 'Actual' in c and 'Weight' in c), None),
+                            next((c for c in cols_a if 'Weight Unit' in c), None),
+                        ] if col is not None]
+                        
+                        st.session_state.result_data = result[output_cols] if output_cols else result
+                        st.session_state.stats = {
+                            'original': original_count,
+                            'filtered': filtered_count,
+                            'zero_inventory': zero_inventory_count,
+                            'result': result_count
+                        }
+                        
+                        st.markdown("""
+                        <div class="info-banner success">
+                            ✅ Data processed successfully!
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+            except Exception as e:
+                st.markdown(f"""
+                <div class="info-banner error">
+                    ❌ Processing error: {str(e)}
+                </div>
+                """, unsafe_allow_html=True)
+
+with col_reset:
+    if st.button("🔄 Reset", use_container_width=True, key='reset_btn'):
+        st.session_state.data_a = None
+        st.session_state.data_b = None
+        st.session_state.result_data = None
+        st.session_state.stats = None
+        st.rerun()
+
+# Display Statistics
+if st.session_state.stats:
+    st.markdown('<h2 class="section-title">📈 Processing Statistics</h2>', unsafe_allow_html=True)
+    
+    stats = st.session_state.stats
+    
+    st.markdown('<div class="stats-grid">', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-label">Data A Original</div>
+            <div class="stat-value">{stats['original']:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-label">After Filter</div>
+            <div class="stat-value">{stats['filtered']:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="stat-card warning">
+            <div class="stat-label">Zero Inventory SKUs</div>
+            <div class="stat-value">{stats['zero_inventory']:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="stat-card success">
+            <div class="stat-label">Final Result</div>
+            <div class="stat-value">{stats['result']:,}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Display Results
+if st.session_state.result_data is not None:
+    st.markdown('<h2 class="section-title">📋 Result Preview</h2>', unsafe_allow_html=True)
+    
+    st.dataframe(
+        st.session_state.result_data,
+        use_container_width=True,
+        height=400
+    )
+    
+    st.markdown('<h2 class="section-title">📥 Download Results</h2>', unsafe_allow_html=True)
+    
+    # Create Excel file
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        st.session_state.result_data.to_excel(writer, sheet_name='Results', index=False)
+    
+    excel_buffer.seek(0)
+    
+    col_download, col_info = st.columns([3, 1])
+    
+    with col_download:
+        st.download_button(
+            label="📥 Download Results as Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"OOS_Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            type='primary'
+        )
+    
+    with col_info:
+        st.metric("Total Rows", len(st.session_state.result_data))
+
+# Footer
+st.markdown("""
+<div class="footer-text">
+    <p>🚀 OOS Data Processor v2.0 | Professional Inventory Analysis Tool</p>
+    <p>Built with Streamlit | Dark Theme | Last Updated: 2026</p>
+</div>
+""", unsafe_allow_html=True)
