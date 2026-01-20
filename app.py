@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import openpyxl
 import io
 from datetime import datetime
 
@@ -243,9 +242,9 @@ with col1:
     
     if file_a is not None:
         try:
-            # Use openpyxl engine explicitly for Excel files
+            # Pandas automatically uses openpyxl for Excel files
             if file_a.name.endswith(('.xlsx', '.xls')):
-                st.session_state.data_a = pd.read_excel(file_a, engine='openpyxl')
+                st.session_state.data_a = pd.read_excel(file_a)
             else:
                 st.session_state.data_a = pd.read_csv(file_a)
             
@@ -273,9 +272,9 @@ with col2:
     
     if file_b is not None:
         try:
-            # Use openpyxl engine explicitly for Excel files
+            # Pandas automatically uses openpyxl for Excel files
             if file_b.name.endswith(('.xlsx', '.xls')):
-                st.session_state.data_b = pd.read_excel(file_b, engine='openpyxl')
+                st.session_state.data_b = pd.read_excel(file_b)
             else:
                 st.session_state.data_b = pd.read_csv(file_b)
             
@@ -436,12 +435,12 @@ if st.session_state.result_data is not None:
     
     st.markdown('<div class="section-title">📥 Download Results</div>', unsafe_allow_html=True)
     
-    # Create Excel file using openpyxl
+    # Create Excel file using pandas (openpyxl is used internally)
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
         st.session_state.result_data.to_excel(writer, sheet_name='Results', index=False)
         
-        # Auto-adjust column widths
+        # Auto-adjust column widths using openpyxl
         workbook = writer.book
         worksheet = writer.sheets['Results']
         for column in worksheet.columns:
