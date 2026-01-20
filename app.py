@@ -3,109 +3,175 @@ import pandas as pd
 import io
 from datetime import datetime
 
-# Configure Streamlit page
+# Page configuration
 st.set_page_config(
     page_title="OOS Data Processor",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Professional Dark Theme CSS
+# Custom CSS for professional dark theme
 st.markdown("""
 <style>
-    :root {
-        --primary: #1f77b4;
-        --secondary: #ff7f0e;
-        --success: #2ca02c;
-        --danger: #d62728;
-        --dark-bg: #0e1117;
-        --card-bg: #161b22;
-        --border: #30363d;
-        --text-primary: #c9d1d9;
-        --text-secondary: #8b949e;
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
     
-    body, .main {
-        background-color: var(--dark-bg);
-        color: var(--text-primary);
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: #0d1117;
+        color: #c9d1d9;
     }
     
-    .header-container {
-        background: linear-gradient(135deg, #1f77b4 0%, #1a5f99 100%);
-        padding: 2.5rem;
+    [data-testid="stHeader"] {
+        background-color: #0d1117;
+    }
+    
+    .main {
+        background-color: #0d1117;
+    }
+    
+    /* Header Styling */
+    .header-section {
+        background: linear-gradient(135deg, #1f77b4 0%, #0d47a1 100%);
+        padding: 3rem 2rem;
         border-radius: 12px;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        margin-bottom: 2.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        text-align: center;
     }
     
     .header-title {
-        color: white;
-        font-size: 2.8rem;
+        color: #ffffff;
+        font-size: 3rem;
         font-weight: 800;
-        margin: 0;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
     
     .header-subtitle {
         color: rgba(255, 255, 255, 0.95);
-        font-size: 1.15rem;
-        margin-top: 0.5rem;
+        font-size: 1.2rem;
         font-weight: 500;
+        letter-spacing: 0.5px;
     }
     
-    .upload-card {
-        background-color: var(--card-bg);
-        border: 2px solid var(--border);
+    /* Upload Section */
+    .upload-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2.5rem;
+    }
+    
+    .upload-box {
+        background-color: #161b22;
+        border: 2px solid #30363d;
         border-radius: 12px;
         padding: 2rem;
-        margin-bottom: 1.5rem;
         transition: all 0.3s ease;
     }
     
-    .upload-card:hover {
-        border-color: var(--primary);
+    .upload-box:hover {
+        border-color: #1f77b4;
         box-shadow: 0 0 20px rgba(31, 119, 180, 0.2);
+        transform: translateY(-2px);
     }
     
-    .card-title {
-        color: var(--primary);
+    .upload-title {
+        color: #1f77b4;
         font-size: 1.4rem;
         font-weight: 700;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
         gap: 0.7rem;
     }
     
-    .card-subtitle {
-        color: var(--text-secondary);
+    .upload-subtitle {
+        color: #8b949e;
         font-size: 0.95rem;
         margin-bottom: 1.5rem;
     }
     
+    /* Status Messages */
+    .status-success {
+        background-color: rgba(44, 160, 44, 0.15);
+        border-left: 4px solid #2ca02c;
+        padding: 1rem;
+        border-radius: 6px;
+        color: #85e89d;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .status-error {
+        background-color: rgba(214, 39, 40, 0.15);
+        border-left: 4px solid #d62728;
+        padding: 1rem;
+        border-radius: 6px;
+        color: #f85149;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Section Title */
+    .section-title {
+        color: #1f77b4;
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 2.5rem 0 1.5rem 0;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #30363d;
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }
+    
+    /* Button Styling */
+    .stButton > button {
+        background-color: #1f77b4 !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        transition: all 0.3s ease !important;
+        width: 100% !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: #1a5f99 !important;
+        box-shadow: 0 8px 16px rgba(31, 119, 180, 0.3) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    /* Stats Grid */
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1.2rem;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
         margin-bottom: 2rem;
     }
     
-    .stat-card {
-        background-color: var(--card-bg);
-        border-left: 5px solid var(--primary);
-        padding: 1.8rem;
-        border-radius: 10px;
+    .stat-box {
+        background-color: #161b22;
+        border-left: 5px solid #1f77b4;
+        padding: 1.5rem;
+        border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         transition: transform 0.3s ease;
     }
     
-    .stat-card:hover {
+    .stat-box:hover {
         transform: translateY(-4px);
     }
     
     .stat-label {
-        color: var(--text-secondary);
+        color: #8b949e;
         font-size: 0.85rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -114,76 +180,52 @@ st.markdown("""
     }
     
     .stat-value {
-        color: var(--primary);
-        font-size: 2.2rem;
+        color: #1f77b4;
+        font-size: 2.5rem;
         font-weight: 800;
     }
     
-    .stat-card.success {
-        border-left-color: var(--success);
+    .stat-box.success {
+        border-left-color: #2ca02c;
     }
     
-    .stat-card.success .stat-value {
-        color: var(--success);
+    .stat-box.success .stat-value {
+        color: #2ca02c;
     }
     
-    .stat-card.warning {
-        border-left-color: var(--secondary);
+    .stat-box.warning {
+        border-left-color: #ff7f0e;
     }
     
-    .stat-card.warning .stat-value {
-        color: var(--secondary);
+    .stat-box.warning .stat-value {
+        color: #ff7f0e;
     }
     
-    .stat-card.danger {
-        border-left-color: var(--danger);
+    /* Data Table */
+    .dataframe {
+        background-color: #161b22 !important;
+        color: #c9d1d9 !important;
     }
     
-    .stat-card.danger .stat-value {
-        color: var(--danger);
-    }
-    
-    .info-banner {
-        background-color: rgba(31, 119, 180, 0.15);
-        border-left: 5px solid var(--primary);
-        padding: 1.2rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-        color: var(--text-primary);
-    }
-    
-    .info-banner.success {
-        background-color: rgba(44, 160, 44, 0.15);
-        border-left-color: var(--success);
-    }
-    
-    .info-banner.error {
-        background-color: rgba(214, 39, 40, 0.15);
-        border-left-color: var(--danger);
-    }
-    
-    .section-title {
-        color: var(--primary);
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin: 2rem 0 1.5rem 0;
-        padding-bottom: 0.8rem;
-        border-bottom: 2px solid var(--border);
-    }
-    
-    .button-group {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .footer-text {
+    /* Footer */
+    .footer {
         text-align: center;
-        color: var(--text-secondary);
+        color: #8b949e;
         font-size: 0.9rem;
         margin-top: 3rem;
         padding-top: 2rem;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid #30363d;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .upload-container {
+            grid-template-columns: 1fr;
+        }
+        
+        .header-title {
+            font-size: 2rem;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -200,41 +242,49 @@ if 'stats' not in st.session_state:
 
 # Header
 st.markdown("""
-<div class="header-container">
-    <h1 class="header-title">📊 OOS Data Processor</h1>
-    <p class="header-subtitle">Intelligent Out-of-Stock Data Analysis & Cross-Reference Tool</p>
+<div class="header-section">
+    <div class="header-title">📊 OOS Data Processor</div>
+    <div class="header-subtitle">Intelligent Out-of-Stock Inventory Analysis & Cross-Reference System</div>
 </div>
 """, unsafe_allow_html=True)
 
-# Instructions
-with st.expander("ℹ️ How It Works", expanded=False):
+# Info Section
+with st.expander("ℹ️ How to Use This Tool", expanded=False):
     st.markdown("""
-    **Processing Steps:**
+    ### Processing Steps:
     
-    1. **Upload Data A (OOS1)** - Order data with system product codes and online status
-    2. **Upload Data B (OOS2)** - Inventory data with SKU and availability information
-    3. **Automatic Processing**:
-       - Filters out PreSale and OnlineShip orders from Data A
-       - Identifies SKUs with zero available inventory in Data B
-       - Cross-references matching records
-    4. **Download Results** - Export processed data as Excel file
+    **1. Upload Files**
+    - **Data A (OOS1)**: Order data containing system product codes and online status
+    - **Data B (OOS2)**: Inventory data with SKU and availability information
     
-    **Output Columns**: Original Order Number, ERP Order Number, Order Status, Platform, Store, Store Group, Order Type, Creator, System Product Code, Estimated Weight, Actual Weight, Weight Unit
+    **2. Automatic Processing**
+    - Filters out PreSale and OnlineShip orders from Data A
+    - Identifies SKUs with zero available inventory in Data B
+    - Cross-references matching records
+    
+    **3. Download Results**
+    - Export processed data as Excel file
+    - Includes key columns: Order Number, Status, Platform, Store, SKU, Weight info
+    
+    ### Output Information:
+    - **Data A Original**: Total records in uploaded file
+    - **After Filter**: Records after removing PreSale/OnlineShip
+    - **Zero Inventory SKUs**: Unique SKUs with 0 available inventory
+    - **Final Result**: Matching records that meet all criteria
     """)
 
 # Upload Section
-st.markdown('<h2 class="section-title">📁 Upload Your Data Files</h2>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">📁 Upload Your Data Files</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
-# Data A Upload
 with col1:
-    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-title">📋 Data A (OOS1)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card-subtitle">Order data with status and SKU information</div>', unsafe_allow_html=True)
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    st.markdown('<div class="upload-title">📋 Data A (OOS1)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="upload-subtitle">Order data with status and SKU</div>', unsafe_allow_html=True)
     
     uploaded_file_a = st.file_uploader(
-        "Choose Data A file",
+        "Upload Data A",
         type=['xlsx', 'xls', 'csv'],
         key='file_a',
         label_visibility='collapsed'
@@ -248,14 +298,14 @@ with col1:
                 st.session_state.data_a = pd.read_excel(uploaded_file_a, engine='openpyxl')
             
             st.markdown(f"""
-            <div class="info-banner success">
-                ✅ <strong>{uploaded_file_a.name}</strong> loaded successfully
+            <div class="status-success">
+                ✅ {uploaded_file_a.name} loaded successfully
                 <br><small>{len(st.session_state.data_a):,} rows × {len(st.session_state.data_a.columns)} columns</small>
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
             st.markdown(f"""
-            <div class="info-banner error">
+            <div class="status-error">
                 ❌ Error: {str(e)}
             </div>
             """, unsafe_allow_html=True)
@@ -263,14 +313,13 @@ with col1:
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Data B Upload
 with col2:
-    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-    st.markdown('<div class="card-title">📋 Data B (OOS2)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card-subtitle">Inventory data with SKU and availability</div>', unsafe_allow_html=True)
+    st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+    st.markdown('<div class="upload-title">📋 Data B (OOS2)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="upload-subtitle">Inventory data with availability</div>', unsafe_allow_html=True)
     
     uploaded_file_b = st.file_uploader(
-        "Choose Data B file",
+        "Upload Data B",
         type=['xlsx', 'xls', 'csv'],
         key='file_b',
         label_visibility='collapsed'
@@ -284,14 +333,14 @@ with col2:
                 st.session_state.data_b = pd.read_excel(uploaded_file_b, engine='openpyxl')
             
             st.markdown(f"""
-            <div class="info-banner success">
-                ✅ <strong>{uploaded_file_b.name}</strong> loaded successfully
+            <div class="status-success">
+                ✅ {uploaded_file_b.name} loaded successfully
                 <br><small>{len(st.session_state.data_b):,} rows × {len(st.session_state.data_b.columns)} columns</small>
             </div>
             """, unsafe_allow_html=True)
         except Exception as e:
             st.markdown(f"""
-            <div class="info-banner error">
+            <div class="status-error">
                 ❌ Error: {str(e)}
             </div>
             """, unsafe_allow_html=True)
@@ -300,15 +349,15 @@ with col2:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Process Section
-st.markdown('<h2 class="section-title">⚙️ Process Data</h2>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">⚙️ Process Data</div>', unsafe_allow_html=True)
 
 col_process, col_reset = st.columns([3, 1])
 
 with col_process:
-    if st.button("🔄 Process Data", use_container_width=True, key='process_btn', type='primary'):
+    if st.button("🔄 Process Data", key='process_btn'):
         if st.session_state.data_a is None or st.session_state.data_b is None:
             st.markdown("""
-            <div class="info-banner error">
+            <div class="status-error">
                 ❌ Please upload both Data A and Data B files before processing
             </div>
             """, unsafe_allow_html=True)
@@ -319,20 +368,16 @@ with col_process:
                     cols_a = st.session_state.data_a.columns.tolist()
                     cols_b = st.session_state.data_b.columns.tolist()
                     
-                    # Find the correct columns
-                    online_status_col = next((col for col in cols_a if 'Online Status' in col or 'online' in col.lower()), None)
-                    sku_col_a = next((col for col in cols_a if 'System Product Code' in col or 'sku' in col.lower()), None)
-                    sku_col_b = next((col for col in cols_b if 'SKU' in col or 'sku' in col.lower()), None)
-                    inventory_col = next((col for col in cols_b if 'Available inventory' in col or 'available' in col.lower()), None)
+                    # Find required columns
+                    online_status_col = next((col for col in cols_a if 'Online Status' in col), None)
+                    sku_col_a = next((col for col in cols_a if 'System Product Code' in col), None)
+                    sku_col_b = next((col for col in cols_b if 'SKU' in col), None)
+                    inventory_col = next((col for col in cols_b if 'Available inventory' in col), None)
                     
                     if not all([online_status_col, sku_col_a, sku_col_b, inventory_col]):
                         st.markdown(f"""
-                        <div class="info-banner error">
-                            ❌ Could not find required columns:
-                            <br>• Online Status: {online_status_col}
-                            <br>• SKU (Data A): {sku_col_a}
-                            <br>• SKU (Data B): {sku_col_b}
-                            <br>• Available Inventory: {inventory_col}
+                        <div class="status-error">
+                            ❌ Required columns not found in files
                         </div>
                         """, unsafe_allow_html=True)
                     else:
@@ -380,20 +425,20 @@ with col_process:
                         }
                         
                         st.markdown("""
-                        <div class="info-banner success">
+                        <div class="status-success">
                             ✅ Data processed successfully!
                         </div>
                         """, unsafe_allow_html=True)
                         
             except Exception as e:
                 st.markdown(f"""
-                <div class="info-banner error">
+                <div class="status-error">
                     ❌ Processing error: {str(e)}
                 </div>
                 """, unsafe_allow_html=True)
 
 with col_reset:
-    if st.button("🔄 Reset", use_container_width=True, key='reset_btn'):
+    if st.button("🔄 Reset", key='reset_btn'):
         st.session_state.data_a = None
         st.session_state.data_b = None
         st.session_state.result_data = None
@@ -402,17 +447,15 @@ with col_reset:
 
 # Display Statistics
 if st.session_state.stats:
-    st.markdown('<h2 class="section-title">📈 Processing Statistics</h2>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📈 Processing Statistics</div>', unsafe_allow_html=True)
     
     stats = st.session_state.stats
-    
-    st.markdown('<div class="stats-grid">', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f"""
-        <div class="stat-card">
+        <div class="stat-box">
             <div class="stat-label">Data A Original</div>
             <div class="stat-value">{stats['original']:,}</div>
         </div>
@@ -420,7 +463,7 @@ if st.session_state.stats:
     
     with col2:
         st.markdown(f"""
-        <div class="stat-card">
+        <div class="stat-box">
             <div class="stat-label">After Filter</div>
             <div class="stat-value">{stats['filtered']:,}</div>
         </div>
@@ -428,7 +471,7 @@ if st.session_state.stats:
     
     with col3:
         st.markdown(f"""
-        <div class="stat-card warning">
+        <div class="stat-box warning">
             <div class="stat-label">Zero Inventory SKUs</div>
             <div class="stat-value">{stats['zero_inventory']:,}</div>
         </div>
@@ -436,17 +479,15 @@ if st.session_state.stats:
     
     with col4:
         st.markdown(f"""
-        <div class="stat-card success">
+        <div class="stat-box success">
             <div class="stat-label">Final Result</div>
             <div class="stat-value">{stats['result']:,}</div>
         </div>
         """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # Display Results
 if st.session_state.result_data is not None:
-    st.markdown('<h2 class="section-title">📋 Result Preview</h2>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📋 Result Preview</div>', unsafe_allow_html=True)
     
     st.dataframe(
         st.session_state.result_data,
@@ -454,7 +495,7 @@ if st.session_state.result_data is not None:
         height=400
     )
     
-    st.markdown('<h2 class="section-title">📥 Download Results</h2>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📥 Download Results</div>', unsafe_allow_html=True)
     
     # Create Excel file
     excel_buffer = io.BytesIO()
@@ -470,9 +511,7 @@ if st.session_state.result_data is not None:
             label="📥 Download Results as Excel",
             data=excel_buffer.getvalue(),
             file_name=f"OOS_Results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-            type='primary'
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
     with col_info:
@@ -480,8 +519,8 @@ if st.session_state.result_data is not None:
 
 # Footer
 st.markdown("""
-<div class="footer-text">
+<div class="footer">
     <p>🚀 OOS Data Processor v2.0 | Professional Inventory Analysis Tool</p>
-    <p>Built with Streamlit | Dark Theme | Last Updated: 2026</p>
+    <p>Built with Streamlit | Dark Theme | Production Ready</p>
 </div>
 """, unsafe_allow_html=True)
